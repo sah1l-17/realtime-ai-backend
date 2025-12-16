@@ -1,11 +1,11 @@
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from app.config import settings
 from app.session import SessionState
+from app.config import settings
+from app import db
 import datetime
 
 app = FastAPI(title=settings.APP_NAME)
 
-# In-memory session store
 active_sessions: dict[str, SessionState] = {}
 
 
@@ -18,34 +18,34 @@ async def health():
 async def websocket_session(websocket: WebSocket, session_id: str):
     await websocket.accept()
 
-    # Create session state
     session = SessionState(session_id)
     active_sessions[session_id] = session
 
-    print(f"[CONNECT] Session {session_id} started at {session.start_time}")
+    # Persist session start
+    db.create_session(session_id)
+
+    print(f"[CONNECT] {session_id}")
 
     try:
         while True:
             user_message = await websocket.receive_text()
 
-            # Save user message
             session.add_message("user", user_message)
+            db.log_event(session_id, "user", user_message)
 
-            print(f"[USER] {session_id}: {user_message}")
-
-            # Temporary echo response
             response = f"Received: {user_message}"
+
             session.add_message("assistant", response)
+            db.log_event(session_id, "assistant", response)
 
             await websocket.send_text(response)
 
     except WebSocketDisconnect:
         end_time = datetime.datetime.utcnow()
-        duration = (end_time - session.start_time).total_seconds()
+        duration = int((end_time - session.start_time).total_seconds())
 
-        print(f"[DISCONNECT] Session {session_id}")
-        print(f"Duration: {duration} seconds")
-        print(f"Messages exchanged: {len(session.messages)}")
+        db.close_session(session_id, end_time, duration)
 
-        # Cleanup
+        print(f"[DISCONNECT] {session_id} ({duration}s)")
+
         active_sessions.pop(session_id, None)
