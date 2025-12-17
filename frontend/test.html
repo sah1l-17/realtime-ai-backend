@@ -1,27 +1,161 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>WebSocket Test</title>
+  <meta charset="UTF-8" />
+  <title>Realtime AI Chat</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      background: #0f172a;
+      color: #e5e7eb;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+    }
+
+    .chat-container {
+      width: 420px;
+      background: #020617;
+      border-radius: 12px;
+      box-shadow: 0 0 40px rgba(0,0,0,0.6);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .header {
+      padding: 14px;
+      background: #020617;
+      border-bottom: 1px solid #1e293b;
+      font-weight: 600;
+      text-align: center;
+    }
+
+    .messages {
+      flex: 1;
+      padding: 14px;
+      overflow-y: auto;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    .message {
+      margin-bottom: 10px;
+      white-space: pre-wrap;
+    }
+
+    .user {
+      color: #38bdf8;
+    }
+
+    .assistant {
+      color: #e5e7eb;
+    }
+
+    .session {
+      color: #22c55e;
+      font-size: 12px;
+      margin-bottom: 12px;
+    }
+
+    .input-area {
+      display: flex;
+      border-top: 1px solid #1e293b;
+    }
+
+    input {
+      flex: 1;
+      padding: 12px;
+      border: none;
+      outline: none;
+      background: #020617;
+      color: #e5e7eb;
+      font-size: 14px;
+    }
+
+    button {
+      padding: 12px 16px;
+      border: none;
+      background: #2563eb;
+      color: white;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: #1d4ed8;
+    }
+
+    button:disabled {
+      background: #334155;
+      cursor: not-allowed;
+    }
+  </style>
 </head>
+
 <body>
-  <button onclick="connect()">Connect</button>
-  <input id="msg" placeholder="Type message" />
-  <button onclick="send()">Send</button>
-  <pre id="log"></pre>
+  <div class="chat-container">
+    <div class="header">Realtime AI Backend Demo</div>
+
+    <div class="messages" id="messages"></div>
+
+    <div class="input-area">
+      <input id="msg" placeholder="Type a message…" />
+      <button id="sendBtn" onclick="send()" disabled>Send</button>
+    </div>
+  </div>
 
   <script>
     let ws;
+    let messagesDiv = document.getElementById("messages");
+    let sendBtn = document.getElementById("sendBtn");
 
     function connect() {
       ws = new WebSocket("ws://127.0.0.1:8000/ws/session");
+
+      ws.onopen = () => {
+        sendBtn.disabled = false;
+      };
+
       ws.onmessage = (e) => {
-        document.getElementById("log").textContent += e.data + "\n";
+        // Session ID message
+        if (e.data.startsWith("[SESSION_ID]")) {
+          const id = e.data.replace("[SESSION_ID]", "");
+          addMessage(`Session ID: ${id}`, "session");
+          return;
+        }
+
+        addMessage(e.data, "assistant");
+      };
+
+      ws.onclose = () => {
+        addMessage("Disconnected", "session");
+        sendBtn.disabled = true;
       };
     }
 
     function send() {
-      ws.send(document.getElementById("msg").value);
+      const input = document.getElementById("msg");
+      const text = input.value.trim();
+      if (!text) return;
+
+      addMessage(text, "user");
+      ws.send(text);
+      input.value = "";
     }
+
+    function addMessage(text, type) {
+      const div = document.createElement("div");
+      div.className = `message ${type}`;
+      div.textContent = text;
+      messagesDiv.appendChild(div);
+      messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    }
+
+    // Auto-connect on load
+    connect();
   </script>
 </body>
 </html>

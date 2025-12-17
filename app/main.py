@@ -59,9 +59,17 @@ async def websocket_session(websocket: WebSocket):
         end_time = datetime.datetime.utcnow()
         duration = int((end_time - session.start_time).total_seconds())
 
-        # Persist session end
         db.close_session(session_id, end_time, duration)
+
+        # Fire background summarization
+        import asyncio
+        from app.background import generate_session_summary
+
+        asyncio.create_task(
+            asyncio.to_thread(generate_session_summary, session_id)
+        )
 
         active_sessions.pop(session_id, None)
 
         print(f"[DISCONNECT] {session_id} ({duration}s)")
+
