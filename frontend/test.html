@@ -13,7 +13,7 @@
     let ws;
 
     function connect() {
-      ws = new WebSocket("ws://127.0.0.1:8000/ws/session/test123");
+      ws = new WebSocket("ws://127.0.0.1:8000/ws/session");
       ws.onmessage = (e) => {
         document.getElementById("log").textContent += e.data + "\n";
       };
