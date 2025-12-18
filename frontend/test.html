@@ -107,10 +107,12 @@
     </div>
   </div>
 
-  <script>
+    <script>
     let ws;
     let messagesDiv = document.getElementById("messages");
     let sendBtn = document.getElementById("sendBtn");
+
+    let currentAssistantMessage = null;
 
     function connect() {
       ws = new WebSocket("ws://127.0.0.1:8000/ws/session");
@@ -120,14 +122,22 @@
       };
 
       ws.onmessage = (e) => {
-        // Session ID message
+        // Session ID
         if (e.data.startsWith("[SESSION_ID]")) {
           const id = e.data.replace("[SESSION_ID]", "");
           addMessage(`Session ID: ${id}`, "session");
           return;
         }
 
-        addMessage(e.data, "assistant");
+        // Streaming token → append to same assistant bubble
+        if (!currentAssistantMessage) {
+          currentAssistantMessage = document.createElement("div");
+          currentAssistantMessage.className = "message assistant";
+          messagesDiv.appendChild(currentAssistantMessage);
+        }
+
+        currentAssistantMessage.textContent += e.data;
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
       };
 
       ws.onclose = () => {
@@ -140,6 +150,9 @@
       const input = document.getElementById("msg");
       const text = input.value.trim();
       if (!text) return;
+
+      // Reset assistant message container for next response
+      currentAssistantMessage = null;
 
       addMessage(text, "user");
       ws.send(text);
@@ -154,8 +167,9 @@
       messagesDiv.scrollTop = messagesDiv.scrollHeight;
     }
 
-    // Auto-connect on load
+    // Auto-connect
     connect();
   </script>
+
 </body>
 </html>
